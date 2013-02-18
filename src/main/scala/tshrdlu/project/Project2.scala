@@ -4,6 +4,8 @@ import twitter4j._
 import tshrdlu.twitter._
 import tshrdlu.util.{English,SimpleTokenizer}
 
+object english extends English
+
 /**
  * Show only tweets that appear to be English.
  */
@@ -32,10 +34,25 @@ trait EnglishStatusListener extends StatusOnlyListener {
    * Test whether a given text is written in English.
    */
   val TheRE = """(?i)\bthe\b""".r // Throw me away!
+  val WhitespaceRE = """\s+""".r
+  val HashtagRE = """#[A-Za-z]+.*""".r
+  val MentionRE = """@[A-Za-z]+.*""".r
+  val WebsiteRE = """\b.*[A-Za-z0-9_\-]+\.[A-Za-z]+.*\b""".r //simple website checker
+  val WordRE = """[^A-Za-z]*([A-Za-z]+((\-|')[A-Za-z]+)?)[^A-Za-z]*""".r
   def isEnglish(text: String) = {
-    // Remove this and do better.
-    !TheRE.findFirstIn(text).isEmpty
+    val words = getActualWords(text)
+    val numWords = words.size.toDouble
+    val numEnglishWords = words.count(english.vocabulary.contains(_))
+    val percentEnglish = numEnglishWords / numWords
+    percentEnglish > 0.5
   }
+  
+  def getActualWords(text: String) = WhitespaceRE.split(text)
+    .filter(x => HashtagRE.findFirstIn(x) == None)
+    .filter(x => MentionRE.findFirstIn(x) == None)
+    .filter(x => WebsiteRE.findFirstIn(x) == None)
+    .flatMap(x => WordRE.findFirstMatchIn(x))
+    .map(x => x.group(1).toLowerCase).toList
 
 }
 
@@ -70,14 +87,16 @@ object PolarityStatusStreamer extends BaseStreamer with PolarityStatusListener
  * statistics at default interval (every 100 tweets). Filtered by provided
  * query terms.
  */
-object PolarityTermStreamer 
+object PolarityTermStreamer extends FilteredStreamer with PolarityStatusListener with TermFilter
 
 /**
  * Output polarity labels for every English tweet and output polarity
  * statistics at an interval of every ten tweets. Filtered by provided
  * query locations.
  */
-object PolarityLocationStreamer 
+object PolarityLocationStreamer extends FilteredStreamer with PolarityStatusListener with LocationFilter {
+  override val outputInterval = 10
+}
 
 
 /**
@@ -119,6 +138,9 @@ trait PolarityStatusListener extends EnglishStatusListener {
     }
     
   }
+  
+  val positiveWords : Set[String] = english.getLexicon("positive-words.txt.gz")
+  val negativeWords : Set[String] = english.getLexicon("negative-words.txt.gz")
 
   /**
    * Given a text, return its polarity:
@@ -128,7 +150,10 @@ trait PolarityStatusListener extends EnglishStatusListener {
    */
   val random = new scala.util.Random
   def getPolarity(text: String) = {
-    random.nextInt(3)
+    val words = getActualWords(text)
+    val numPositive = words.count(positiveWords.contains(_))
+    val numNegative = words.count(negativeWords.contains(_))
+    if(numPositive > numNegative) 0 else if (numPositive < numNegative) 1 else 2
   }
 
 }
