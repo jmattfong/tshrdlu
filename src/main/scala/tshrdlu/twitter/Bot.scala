@@ -113,7 +113,7 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
   import collection.JavaConversions._
 
   // Thesaurus from Jim Evans and Jason Mielens
-  val thesLines = io.Source.fromFile("src/main/resources/dict/en_thes").getLines.toVector
+  val thesLines = (for (line <- io.Source.fromFile("src/main/resources/dict/en_thes").getLines) yield line.toLowerCase).toVector
   val thesWords = thesLines.zipWithIndex.filter(!_._1.contains("("))
   val thesList  = thesWords.unzip._1.map(x => x.split("\\|").head)
   val tmpMap = thesWords.map{ w =>
