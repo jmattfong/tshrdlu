@@ -4,8 +4,6 @@ import twitter4j._
 import tshrdlu.twitter._
 import tshrdlu.util.{English,SimpleTokenizer}
 
-object english extends English
-
 /**
  * Show only tweets that appear to be English.
  */
@@ -42,7 +40,7 @@ trait EnglishStatusListener extends StatusListenerAdaptor {
   def isEnglish(text: String) = {
     val words = getActualWords(text)
     val numWords = words.size.toDouble
-    val numEnglishWords = words.count(english.vocabulary.contains(_))
+    val numEnglishWords = words.count(English.vocabulary.contains(_))
     val percentEnglish = numEnglishWords / numWords
     percentEnglish > 0.5
   }
@@ -139,8 +137,8 @@ trait PolarityStatusListener extends EnglishStatusListener {
     
   }
   
-  val positiveWords : Set[String] = english.getLexicon("positive-words.txt.gz")
-  val negativeWords : Set[String] = english.getLexicon("negative-words.txt.gz")
+  val positiveWords : Set[String] = English.getLexicon("positive-words.txt.gz")
+  val negativeWords : Set[String] = English.getLexicon("negative-words.txt.gz")
 
   /**
    * Given a text, return its polarity:

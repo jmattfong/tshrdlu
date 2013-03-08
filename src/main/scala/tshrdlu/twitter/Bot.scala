@@ -27,6 +27,57 @@ trait TwitterInstance {
   val twitter = new TwitterFactory().getInstance
 }
 
+object FollowBot extends TwitterInstance with RateChecker {
+    def main(args: Array[String]) {
+        val suffix = "_anlp"
+        val followSN = "appliednlp"
+        val screenName = twitter.getScreenName
+        val friends = twitter.getFriendsList(screenName)
+        val followerIds = twitter.getFollowersIDs(followSN,-1).getIDs
+
+        val screenNames = followerIds.flatMap { id => {
+            val user = twitter.showUser(id)
+            checkAndWait(user)
+            if (user.isProtected) None else Some(user.getScreenName)
+        }}
+        screenNames.foreach { sn => {
+            if (sn.endsWith(suffix) && sn != screenName) twitter.createFriendship(sn)
+        }}
+    }
+}
+
+/**
+ * A trait with checkAndWait function that checks whether the
+ * rate limit has been hit and wait if it has.
+ *
+ * This ignores the fact that different request types have different
+ * limits, but it keeps things simple.
+ */
+trait RateChecker {
+
+  /**
+   * See whether the rate limit has been hit, and wait until it
+   * resets if so. Waits 10 seconds longer than the reset time to
+   * ensure the time is sufficient.
+   *
+   * This is surely not an optimal solution, but it seems to do
+   * the trick.
+   */
+  def checkAndWait(response: TwitterResponse, verbose: Boolean = false) {
+    val rateLimitStatus = response.getRateLimitStatus
+    if (verbose) println("RLS: " + rateLimitStatus)
+
+    if (rateLimitStatus != null && rateLimitStatus.getRemaining == 0) {
+      println("*** You hit your rate limit. ***")
+      val waitTime = rateLimitStatus.getSecondsUntilReset + 10
+      println("Waiting " + waitTime + " seconds ( "
+	      + waitTime/60.0 + " minutes) for rate limit reset.")
+      Thread.sleep(waitTime*1000)
+    }
+  }
+
+}
+
 /**
  * A bot that can monitor the stream and also take actions for the user.
  */
