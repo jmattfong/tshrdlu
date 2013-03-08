@@ -126,7 +126,7 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
       thesLines(_)
     }
   }
-  val synonymMap = thesList.zip(tmpMap).toMap.mapValues{ v => v.flatMap{ x=> x.split("\\|").filterNot(_.contains("("))}}.withDefault(x=>Vector(x.toString))
+  val synonymMap = thesList.zip(tmpMap).toMap.mapValues{ v => v.flatMap{ x=> x.split("\\|").filterNot(_.contains("("))}}.withDefault(x=>Vector(x.toString.toLowerCase))
 
   val username = twitter.getScreenName
 
