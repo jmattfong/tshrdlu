@@ -27,20 +27,17 @@ trait TwitterInstance {
   val twitter = new TwitterFactory().getInstance
 }
 
-object FollowBot extends TwitterInstance with RateChecker {
+object FollowAnlp extends TwitterInstance with RateChecker {
     def main(args: Array[String]) {
-        val suffix = "_anlp"
-        val followSN = "appliednlp"
         val screenName = twitter.getScreenName
-        val followerIds = twitter.getFollowersIDs(followSN,-1).getIDs
-
+        val followerIds = twitter.getFollowersIDs("appliednlp",-1).getIDs
         val screenNames = followerIds.flatMap { id => {
             val user = twitter.showUser(id)
             checkAndWait(user)
             if (user.isProtected) None else Some(user.getScreenName)
         }}
         screenNames.foreach { sn => {
-            if (sn.endsWith(suffix) && sn != screenName) twitter.createFriendship(sn)
+            if (sn.endsWith("_anlp") && sn != screenName) twitter.createFriendship(sn)
         }}
     }
 }
@@ -136,7 +133,7 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
       twitter.updateStatus(reply)
     }
   }
- 
+
   /**
    * A method that possibly takes an action based on a status
    * it has received, and then produces a response.
