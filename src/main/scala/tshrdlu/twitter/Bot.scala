@@ -182,7 +182,7 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
 	    .filterNot(_.contains('/'))
 	    .filter(tshrdlu.util.English.isSafe)
 	    .sortBy(- _.length)
-	    .toSet
+	    .toList
 	    .take(4)
             .sliding(2)
             .map(_.mkString(" "))
