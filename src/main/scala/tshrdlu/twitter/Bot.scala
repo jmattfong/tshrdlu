@@ -168,9 +168,9 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
 	  case screenName => screenName.drop(1)
 	}
 	.toSet
-      //followSet.foreach(twitter.createFriendship)
-      //"OK. I FOLLOWED " + followSet.map("@"+_).mkString(" ") + "."  
-      "NO."
+      followSet.foreach(twitter.createFriendship)
+      "OK. I FOLLOWED " + followSet.map("@"+_).mkString(" ") + "."  
+      //"NO."
     } else {
       
       try {
@@ -183,6 +183,7 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
 	    .filter(tshrdlu.util.English.isSafe)
 	    .sortBy(- _.length)
 	    .toList
+	    // Use a bigram instead of a unigram search
 	    .take(4)
             .sliding(2)
             .map(_.mkString(" "))
@@ -223,8 +224,7 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
       val tweetWordCount = wordCountMap(tweet, 2)
       val responseWordCounts = for (response <- useableTweets.filter(resTweet => (resTweet.toLowerCase.trim != tweet.trim))) yield (response, wordCountMap(response, 2))
       val cosineSimResponses = for ((response, responseWordCount) <- responseWordCounts) yield (response, cosine(tweetWordCount, responseWordCount))
-      //responseWordCounts.foreach(println)
-      //cosineSimResponses.maxBy(_._2)._1
+      // Filter by cosine distance and sentiment
       cosineSimResponses.sortBy(-_._2).take(5).sortBy(x => mult * Math.abs(getSentiment(x._1) + mult * desiredSentiment)).head._1
     }
   }
@@ -243,6 +243,7 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
   // Compute the Euclidean norm of a vector
   def norm(x: Map[String, Int]) = Math.sqrt(x.values.map(Math.pow(_,2)).sum)
 
+  // Compute the (percent of positive words) - (percent of negative words)
   def getSentiment(text: String) = {
     val words = SimpleTokenizer(text)
     val len = words.length.toDouble
