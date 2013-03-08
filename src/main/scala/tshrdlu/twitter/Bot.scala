@@ -18,6 +18,7 @@ package tshrdlu.twitter
 
 import twitter4j._
 import collection.JavaConversions._
+import tshrdlu.util.{English,SimpleTokenizer}
 
 /**
  * Base trait with properties default for Configuration.
@@ -111,6 +112,22 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
   import tshrdlu.util.SimpleTokenizer
   import collection.JavaConversions._
 
+  // Thesaurus from Jim Evans and Jason Mielens
+  val thesLines = io.Source.fromFile("src/main/resources/dict/en_thes").getLines.toVector
+  val thesWords = thesLines.zipWithIndex.filter(!_._1.contains("("))
+  val thesList  = thesWords.unzip._1.map(x => x.split("\\|").head)
+  val tmpMap = thesWords.map{ w =>
+    val lineNum = w._2
+    val senses = w._1.split("\\|").tail.head.toInt
+
+    val range = (lineNum + 1) to (lineNum + senses)
+
+    range.map{
+      thesLines(_)
+    }
+  }
+  val synonymMap = thesList.zip(tmpMap).toMap.mapValues{ v => v.flatMap{ x=> x.split("\\|").filterNot(_.contains("("))}}.withDefault(x=>Vector(x.toString))
+
   val username = twitter.getScreenName
 
   // Recognize a follow command
@@ -166,10 +183,12 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
 	    .filter(tshrdlu.util.English.isSafe)
 	    .sortBy(- _.length)
 	    .toSet
-	    .take(3)
+	    .take(4)
+            .sliding(2)
+            .map(_.mkString(" "))
 	    .toList
 	    .flatMap(w => twitter.search(new Query(w)).getTweets)
-	extractText(statusList)
+	extractText(statusList, withoutMention)
       }	catch { 
 	case _: Throwable => "NO."
       }
@@ -183,7 +202,9 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
    * filter any that have remaining mentions or links, and then return the
    * head of the set, if it exists.
    */
-  def extractText(statusList: List[Status]) = {
+  def extractText(statusList: List[Status], tweet: String) = {
+    val desiredSentiment = getSentiment(tweet)
+    val mult = if(desiredSentiment == 0) -1 else 1
     val useableTweets = statusList
       .map(_.getText)
       .map {
@@ -195,7 +216,39 @@ extends StatusListenerAdaptor with UserStreamListenerAdaptor {
       .filter(tshrdlu.util.English.isEnglish)
       .filter(tshrdlu.util.English.isSafe)
 
-    if (useableTweets.isEmpty) "NO." else useableTweets.head
+    if (useableTweets.isEmpty) {
+      "NO." 
+    }
+    else {
+      val tweetWordCount = wordCountMap(tweet, 2)
+      val responseWordCounts = for (response <- useableTweets.filter(resTweet => (resTweet.toLowerCase.trim != tweet.trim))) yield (response, wordCountMap(response, 2))
+      val cosineSimResponses = for ((response, responseWordCount) <- responseWordCounts) yield (response, cosine(tweetWordCount, responseWordCount))
+      //responseWordCounts.foreach(println)
+      //cosineSimResponses.maxBy(_._2)._1
+      cosineSimResponses.sortBy(-_._2).take(5).sortBy(x => mult * Math.abs(getSentiment(x._1) + mult * desiredSentiment)).head._1
+    }
+  }
+
+  // Makes a word count vector for a string
+  def wordCountMap(text: String, synonyms: Int = 0) = {
+    (for (word <- SimpleTokenizer(text)) yield (Set(word.toLowerCase()) ++ synonymMap(word).take(synonyms).toSet)).flatten.filter(word => """[\p{P}]+""".r.findAllIn(word).isEmpty).groupBy(x=>x).mapValues(_.length).withDefaultValue(0)
+  }
+
+  // Computer the cosine between two vectors
+  def cosine(x: Map[String, Int], y: Map[String, Int]) = {
+    val dotProd = x.map { case (k,v) => v*y(k) }.sum
+    dotProd/(norm(x)*norm(y))
+  }
+
+  // Compute the Euclidean norm of a vector
+  def norm(x: Map[String, Int]) = Math.sqrt(x.values.map(Math.pow(_,2)).sum)
+
+  def getSentiment(text: String) = {
+    val words = SimpleTokenizer(text)
+    val len = words.length.toDouble
+    val percentPositive = words.count(English.positiveWords.contains) / len
+    val percentNegative = words.count(English.negativeWords.contains) / len
+    (percentPositive - percentNegative)
   }
 
 }

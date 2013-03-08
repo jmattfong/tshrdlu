@@ -64,6 +64,8 @@ object English extends Language("eng") {
   lazy val stopwords = getLexicon("stopwords.english")
   lazy val vulgar = getLexicon("vulgar.txt.gz")
   lazy val vocabulary = getLexicon("masc_vocab.txt.gz") ++ stopwords
+  lazy val positiveWords = getLexicon("positive-words.txt.gz")
+  lazy val negativeWords = getLexicon("negative-words.txt.gz")
 
   def isEnglish(text: String) = {
     val words = SimpleTokenizer(removeNonLanguage(text).toLowerCase)
