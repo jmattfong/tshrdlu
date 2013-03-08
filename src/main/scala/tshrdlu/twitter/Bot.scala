@@ -32,7 +32,6 @@ object FollowBot extends TwitterInstance with RateChecker {
         val suffix = "_anlp"
         val followSN = "appliednlp"
         val screenName = twitter.getScreenName
-        val friends = twitter.getFriendsList(screenName)
         val followerIds = twitter.getFollowersIDs(followSN,-1).getIDs
 
         val screenNames = followerIds.flatMap { id => {
